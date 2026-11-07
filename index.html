@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bulk URL Shortener</title>
+  <style>
+    :root { --bg:#f4f5fa; --card:#ffffff; --text:#111827; --muted:#6b7280; --border:#e5e7eb; --accent:#4f46e5; --accent-dark:#4338ca; --accent-soft:#eef2ff; --danger:#dc2626; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    [data-theme="dark"] { --bg:#0f172a; --card:#1e293b; --text:#e2e8f0; --muted:#94a3b8; --border:#334155; --accent:#818cf8; --accent-dark:#6366f1; --accent-soft:#312e81; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); }
+    main { max-width: 880px; margin: 0 auto; padding: 40px 16px 72px; }
+    header { text-align: center; margin-bottom: 28px; }
+    .header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { font-size: 2.1rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+    p.subtitle { color: var(--muted); margin: 0; font-size: 1.05rem; }
+    .qr { width: 40px; height: 40px; border-radius: 6px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06); }
+    textarea#urls { width: 100%; min-height: 180px; font-family: var(--mono); font-size: 14px; line-height: 1.6; padding: 14px; border: 1px solid var(--border); border-radius: 12px; resize: vertical; background: #fbfcfe; color: var(--text); }
+    textarea#urls:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+    .actions { display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+    button { font: inherit; font-weight: 600; font-size: 15px; border-radius: 10px; padding: 12px 22px; cursor: pointer; border: 1px solid transparent; transition: background 0.15s ease; }
+    button.primary { background: var(--accent); color: #fff; }
+    button.primary:hover { background: var(--accent-dark); }
+    button.primary:disabled { background: #c7d2fe; cursor: not-allowed; }
+    button.secondary { background: #fff; color: var(--text); border-color: var(--border); }
+    button.secondary:hover { background: #f9fafb; }
+    #inputStats { color: var(--muted); font-size: 14px; min-height: 22px; margin: 12px 0 0; }
+    #resultsSection { margin-top: 26px; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; min-width: 120px; }
+    .stat .num { font-size: 24px; font-weight: 700; }
+    .stat .lbl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+    #resultsList { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 12px; overflow: auto; max-height: 62vh; background: #fff; }
+    .row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .row:last-child { border-bottom: none; }
+    .row .long { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #374151; }
+    .row .long a { color: inherit; text-decoration: none; }
+    .row .short { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--accent); white-space: nowrap; text-decoration: none; }
+    .row .short:hover { text-decoration: underline; }
+    .copy-btn { font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid #e0e7ff; border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+    .copy-btn:hover { background: #e0e7ff; }
+    .copy-btn.copied { background: #d1fae5; border-color: #a7f3d0; color: #065f46; }
+    details.map { margin-top: 18px; }
+    details.map summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+    pre#mapJson { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 12px; overflow: auto; max-height: 260px; font-size: 12px; line-height: 1.5; }
+    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="header-row">
+        <div>
+          <h1>Bulk URL Shortener</h1>
+          <p class="subtitle">Paste 1000s of URLs below — get back a list of short links like <code>https://yourname.github.io/pro/?s=Ab3xY9</code></p>
+        </div>
+        <button id="themeBtn" class="secondary">🌙 Dark</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <textarea id="urls" placeholder="https://example.com/page-1&#10;https://example.com/page-2&#10;https://example.com/page-3"></textarea>
+      <div class="actions">
+        <button id="shortenBtn" class="primary">⚡ Shorten URLs</button>
+        <button id="loadFileBtn" class="secondary">📁 Load URLs from file</button>
+        <input type="file" id="fileInput" accept=".txt,.html,.csv,.json,.md" style="display:none" />
+      </div>
+      <p id="inputStats"></p>
+      <p class="hint">Tip: paste plain URLs (new lines / commas / spaces separate) or paste HTML like <code>&lt;a href="https://..."&gt;https://...&lt;/a&gt;</code>. Use <code>URL | Custom Title</code> for a friendly name. Short links look like <code>/?s=Ab3xY9</code>.</p>
+    </section>
+
+    <section id="resultsSection" hidden>
+      <div class="stats" id="statsSection"></div>
+      <ul id="resultsList"></ul>
+      <div class="actions" style="margin-top:14px;">
+        <button id="copyAllBtn" class="secondary">📋 Copy all short URLs</button>
+        <button id="copyMdBtn" class="secondary">📄 Copy as Markdown</button>
+        <button id="downloadMapBtn" class="secondary">⬇️ Download shortcodes.json</button>
+      </div>
+      <details class="map">
+        <summary>shortcodes.json (mapping used for redirects)</summary>
+        <pre id="mapJson">{}</pre>
+        <button id="copyMapBtn" class="secondary" style="margin-top:10px;">📋 Copy JSON</button>
+        <p class="hint">To activate redirects, commit this file to the root of your GitHub Pages repo.</p>
+      </details>
+    </section>
+  </main>
+
+  <script>
+    const ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+    function getBase() {
+      var p = location.pathname;
+      if (p.charAt(p.length - 1) === "/") return p;
+      var i = p.lastIndexOf("/");
+      return i >= 0 ? p.slice(0, i + 1) : "/";
+    }
+    var BASE = getBase();
+
+    const textarea = document.getElementById("urls");
+    const shortenBtn = document.getElementById("shortenBtn");
+    const loadFileBtn = document.getElementById("loadFileBtn");
+    const fileInput = document.getElementById("fileInput");
+    const inputStats = document.getElementById("inputStats");
+    const resultsSection = document.getElementById("resultsSection");
+    const statsSection = document.getElementById("statsSection");
+    const resultsList = document.getElementById("resultsList");
+    const copyAllBtn = document.getElementById("copyAllBtn");
+    const copyMdBtn = document.getElementById("copyMdBtn");
+    const downloadMapBtn = document.getElementById("downloadMapBtn");
+    const mapJson = document.getElementById("mapJson");
+    const copyMapBtn = document.getElementById("copyMapBtn");
+
+    let lastEntries = [];
+
+    const themeBtn = document.getElementById("themeBtn");
+    const savedTheme = localStorage.getItem("busr-theme");
+    if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+    themeBtn.addEventListener("click", () => {
+      const dark = document.documentElement.getAttribute("data-theme") === "dark";
+      const next = dark ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("busr-theme", next);
+      themeBtn.textContent = next === "dark" ? "☀️ Light" : "🌙 Dark";
+    });
+
+    function genCode(len) {
+      const bytes = new Uint8Array(len);
+      crypto.getRandomValues(bytes);
+      let s = "";
+      for (let i = 0; i < len; i++) s += ALPHABET[bytes[i] % ALPHABET.length];
+      return s;
+    }
+
+    async function getExistingMap() {
+      try {
+        const r = await fetch(BASE + "shortcodes.json", { cache: "no-store" });
+        if (!r.ok) return {};
+        const j = await r.json();
+        return (j && typeof j === "object") ? j : {};
+      } catch (e) { return {}; }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function render(entries, total, dupes) {
+      lastEntries = entries;
+      resultsSection.hidden = false;
+      const stat = (num, lbl) => `<div class="stat"><div class="num">${num}</div><div class="lbl">${lbl}</div></div>`;
+      statsSection.innerHTML = [
+        stat(entries.length, "Short links created"),
+        stat(total, "Unique URLs"),
+        stat(dupes, "Duplicates removed"),
+      ].join("");
+      resultsList.innerHTML = entries.map((e) => `
+        <li class="row">
+          <span class="long"><a href="${escapeHtml(e.long)}" target="_blank" rel="noopener">${escapeHtml(e.title || e.long)}</a></span>
+          <a class="short" href="${e.short}" target="_blank" rel="noopener">${e.short}</a>
+          <button class="copy-btn" data-short="${e.short}">Copy</button>
+          <img class="qr" src="https://chart.googleapis.com/chart?chs=80x80&cht=qr&chl=${encodeURIComponent(e.short)}" alt="QR code" />
+        </li>`).join("");
+      const mapObj = {};
+      for (const e of entries) mapObj[e.code] = e.long;
+      mapJson.textContent = JSON.stringify(mapObj, null, 2);
+    }
+
+    async function redirectByCode(code) {
+      const map = await getExistingMap();
+      const target = map[code] || map[String(code).toUpperCase()] || null;
+      if (target) { window.location.replace(target); } else { window.location.replace(BASE); }
+    }
+
+    (function () {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("s");
+      if (s) redirectByCode(s);
+    })();
+
+    function extractUrls(text) {
+      let t = String(text || "");
+      t = t.replace(/<a\s[^>]*?href\s*=\s*(["'])([^"']*)\1[^>]*>[\s\S]*?<\/a>/gi, function (m, q, href) { return href; });
+      t = t.replace(/&amp;/gi, "&");
+      const found = t.match(/https?:\/\/[^\s"'<>]+/gi) || [];
+      const out = [];
+      for (const f of found) { const u = f.trim(); if (u) out.push(u); }
+      return out;
+    }
+
+    async function shorten() {
+      const urls = extractUrls(textarea.value);
+      const seen = new Set();
+      const cleaned = [];
+      let dupes = 0;
+      for (const u0 of urls) {
+        let full = u0;
+        if (!/^https?:\/\//i.test(full)) full = "https://" + full;
+        const key = full.toLowerCase();
+        if (seen.has(key)) { dupes++; continue; }
+        seen.add(key);
+        let title = null;
+        let u = full;
+        const pipe = u.indexOf("|");
+        if (pipe >= 0) { title = u.slice(pipe + 1).trim(); u = u.slice(0, pipe).trim(); }
+        if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+        cleaned.push({ url: u, title });
+      }
+      inputStats.textContent = cleaned.length
+        ? `Found ${cleaned.length} unique URL${cleaned.length === 1 ? "" : "s"}.${dupes ? ` Removed ${dupes} duplicate${dupes === 1 ? "" : "s"}.` : ""}`
+        : "Paste at least one URL to shorten.";
+      if (!cleaned.length) { resultsSection.hidden = true; return; }
+
+      shortenBtn.disabled = true;
+      shortenBtn.textContent = "⏳ Creating short links…";
+
+      const map = await getExistingMap();
+      const used = new Set(Object.keys(map));
+      const entries = [];
+      for (const item of cleaned) {
+        let code = genCode(6);
+        while (used.has(code)) code = genCode(6);
+        used.add(code);
+        entries.push({ code, long: item.url, title: item.title, short: `${location.origin}${BASE}/?s=${code}` });
+      }
+
+      render(entries, cleaned.length, dupes);
+
+      shortenBtn.disabled = false;
+      shortenBtn.textContent = "⚡ Shorten URLs";
+    }
+
+    async function copyText(t) {
+      try { await navigator.clipboard.writeText(t); return true; }
+      catch (e) {
+        try {
+          const ta = document.createElement("textarea");
+          ta.value = t;
+          ta.style.position = "fixed";
+          ta.style.opacity = "0";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+          return true;
+        } catch (e2) { return false; }
+      }
+    }
+
+    async function copyMarkdown() {
+      const lines = lastEntries.map(e => `- ${e.short}`).join("\n");
+      const ok = await copyText(lines);
+      copyMdBtn.textContent = ok ? "✅ Copied!" : "❌";
+      setTimeout(() => (copyMdBtn.textContent = "📄 Copy as Markdown"), 1800);
+    }
+
+    async function copyAll() {
+      const shorts = lastEntries.map(e => e.short);
+      const ok = await copyText(shorts.join("\n"));
+      copyAllBtn.textContent = ok ? "✅ Copied!" : "❌ Failed";
+      setTimeout(() => (copyAllBtn.textContent = "📋 Copy all short URLs"), 1800);
+    }
+
+    function downloadMap() {
+      const mapObj = {};
+      for (const e of lastEntries) mapObj[e.code] = e.long;
+      const blob = new Blob([JSON.stringify(mapObj, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "shortcodes.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function copyMap() {
+      const ok = await copyText(mapJson.textContent);
+      copyMapBtn.textContent = ok ? "✅ Copied!" : "❌ Failed";
+      setTimeout(() => (copyMapBtn.textContent = "📋 Copy JSON"), 1800);
+    }
+
+    shortenBtn.addEventListener("click", shorten);
+    loadFileBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const text = await f.text();
+      textarea.value = text;
+      inputStats.textContent = `Loaded ${f.name}. Auto-shortening…`;
+      shortenBtn.disabled = true;
+      shortenBtn.textContent = "⏳ Creating short links…";
+      await shorten();
+    });
+    copyAllBtn.addEventListener("click", copyAll);
+    copyMdBtn.addEventListener("click", copyMarkdown);
+    downloadMapBtn.addEventListener("click", downloadMap);
+    copyMapBtn.addEventListener("click", copyMap);
+    resultsList.addEventListener("click", (e) => {
+      const btn = e.target.closest(".copy-btn");
+      if (!btn) return;
+      const short = btn.dataset.short;
+      copyText(short).then((ok) => {
+        btn.classList.add("copied");
+        btn.textContent = ok ? "✅ Copied!" : "❌";
+        setTimeout(() => { btn.classList.remove("copied"); btn.textContent = "Copy"; }, 1800);
+      });
+    });
+  </script>
+</body>
+</html>
